@@ -35,25 +35,54 @@
           installPhase = ''
             runHook preInstall
 
+            echo "--- Font Flake Install Phase ---"
+            echo "Source directory (\$src): $src"
+            echo "Listing contents of \$src:"
+            ls -la "$src"
+            echo "-------------------------------"
+
+            # --- Adjust this line based on your repo structure ---
+            local font_source_dir="$src/fonts" # Or "$src", "$src/other_dir", etc.
+            # -----------------------------------------------------
+
+            echo "Attempting to use font source directory: $font_source_dir"
+            echo "Checking if font source directory exists:"
+            if [ -d "$font_source_dir" ]; then
+              echo "Directory exists. Listing contents:"
+              ls -la "$font_source_dir"
+            else
+              echo "ERROR: Directory $font_source_dir NOT FOUND!"
+              # Optionally exit here if the dir must exist: exit 1
+            fi
+            echo "-------------------------------"
+
+
             local otf_font_dir="$out/share/fonts/opentype/${placeholder "pname"}-${placeholder "version"}"
             local ttf_font_dir="$out/share/fonts/truetype/${placeholder "pname"}-${placeholder "version"}"
 
             mkdir -p "$otf_font_dir"
             mkdir -p "$ttf_font_dir"
 
-            local font_source_dir="$src/fonts"
+            echo "Copying OTF fonts to $otf_font_dir from $font_source_dir"
+            # Using -v for verbose copy, || echo to report find/cp failures
+            find "$font_source_dir" -maxdepth 1 -type f -iname '*.otf' -print -exec cp -vt "$otf_font_dir" --backup=none {} + || echo "Warning: No OTF files found or error during copy."
+            # Added -maxdepth 1 assuming fonts are directly in font_source_dir, remove if they are nested deeper.
+            # Added -print to see files found by find. Changed pipe to -exec {} + which is often more robust.
 
-            echo "Copying OTF fonts to $otf_font_dir"
-            find "$font_source_dir" -type f -iname '*.otf' -print0 | xargs -0 cp -t "$otf_font_dir" --backup=none
+            echo "Copying TTF fonts to $ttf_font_dir from $font_source_dir"
+            find "$font_source_dir" -maxdepth 1 -type f -iname '*.ttf' -print -exec cp -vt "$ttf_font_dir" --backup=none {} + || echo "Warning: No TTF files found or error during copy."
 
-            echo "Copying TTF fonts to $ttf_font_dir"
-            find "$font_source_dir" -type f -iname '*.ttf' -print0 | xargs -0 cp -t "$ttf_font_dir" --backup=none
-
-            # Verify copy (optional debug step)
-            echo "Contents of OTF target:"
+            echo "--- Final Check ---"
+            echo "Contents of OTF target ($otf_font_dir):"
             ls -l "$otf_font_dir"
-            echo "Contents of TTF target:"
+            echo "Contents of TTF target ($ttf_font_dir):"
             ls -l "$ttf_font_dir"
+
+            if [ -z "$(ls -A $otf_font_dir)" ] && [ -z "$(ls -A $ttf_font_dir)" ]; then
+               echo "ERROR: Both target font directories are empty. Install failed."
+               # Consider exiting with error: exit 1
+            fi
+            echo "------------------"
 
             runHook postInstall
           '';
